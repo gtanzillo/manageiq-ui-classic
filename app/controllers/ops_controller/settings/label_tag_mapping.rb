@@ -241,7 +241,7 @@ module OpsController::Settings::LabelTagMapping
 
     begin
       ActiveRecord::Base.transaction do
-        category = category_for_mapping(cat_description, entity, label_name)
+        category = category_for_mapping(cat_description_with_prefix(entity, cat_description), entity, label_name)
         ContainerLabelTagMapping.create!(:labeled_resource_type => entity,
                                          :label_name            => label_name,
                                          :tag                   => category.tag)
@@ -259,11 +259,10 @@ module OpsController::Settings::LabelTagMapping
 
   def label_tag_mapping_update(id, cat_description)
     mapping = ContainerLabelTagMapping.find(id)
-    update_category = mapping.tag.classification
-    update_category.description = cat_description_with_prefix(mapping.labeled_resource_type, cat_description)
+
     begin
       if mapping.labeled_resource_type == ALL_ENTITIES
-        update_category = classification_lookup_with_cache_by(cat_description)
+        update_category = classification_lookup_with_cache_by(cat_description_with_prefix(mapping.labeled_resource_type, cat_description))
         # Should not create a new category if "All entities". The chosen category should exist
         if update_category.nil?
           flash_message_on_validation_error_for(:tag_not_found, mapping.labeled_resource_type, mapping.label_name, cat_description)
@@ -274,7 +273,7 @@ module OpsController::Settings::LabelTagMapping
         mapping.save!
       else
         update_category = mapping.tag.classification
-        update_category.description = cat_description
+        update_category.description = cat_description_with_prefix(mapping.labeled_resource_type, cat_description)
 
         update_category.save!
       end
@@ -322,6 +321,8 @@ module OpsController::Settings::LabelTagMapping
   end
 
   def cat_description_with_prefix(entity, cat_description)
+    return cat_description if entity == ALL_ENTITIES
+
     prefix = MAPPABLE_ENTITIES[entity].prefix.chomp(":")
     "#{prefix}|#{cat_description}"
   end
